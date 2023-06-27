@@ -397,9 +397,9 @@ void sendseth(int hh, int mm) {
   radio.write(&toSend, sizeof(toSend));
   ///////////////////////////////////
   String str = "";
-  if(hh<9)str.concat("0");
+  if(hh<10)str.concat("0");
   str.concat(hh);
-  if(mm<9)str.concat("0");
+  if(mm<10)str.concat("0");
   str.concat(mm);
   
   Serial.println(str);

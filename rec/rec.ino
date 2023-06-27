@@ -109,7 +109,7 @@ void loop() {
       }
     } else if (c[0] == '2') overwrite = false;
     else if(c[0] == '3'){
-      char hhmm []="    ";
+      char hhmm []="     ";
       radio.read(&hhmm, sizeof(hhmm));
       String strhh = "";
        String strmm = "";
