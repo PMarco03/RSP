@@ -109,6 +109,7 @@ void loop() {
       }
     } else if (c[0] == '2') overwrite = false;
     else if(c[0] == '3'){
+      while (!radio.available()) {}
       char hhmm []="     ";
       radio.read(&hhmm, sizeof(hhmm));
       String strhh = "";
@@ -122,8 +123,8 @@ void loop() {
       RTC.setMinute(mm);
       RTC.setHour(hh);
       RTC.setSecond(0);
-       Serial.println(strhh);
-       Serial.println(strmm);
+       Serial.println(hh);
+       Serial.println(mm);
     }
   }
 }
