@@ -4,6 +4,12 @@
 #include <DS3231.h>
 #include <EEPROM.h>
 DS3231 RTC;
+#define v1 2
+#define v2 3
+#define v3 4
+#define v4 5
+#define power 9
+
 RF24 radio(7, 8);  // CE, CSN
 const byte address[6] = "122222";
 int valv[4][3];
@@ -11,6 +17,7 @@ int oldsec = 0;
 bool h12 = false;
 bool hPM = false;
 bool states[4];
+bool oldstates[4];
 long unsigned int timers[4];
 bool overwrite = false;
 void setup() {
@@ -21,21 +28,24 @@ void setup() {
   radio.openWritingPipe(address);
   radio.stopListening();
   setradio(true);
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
+  pinMode(v1, OUTPUT);
+  pinMode(v2, OUTPUT);
+  pinMode(v3, OUTPUT);
+  pinMode(v4, OUTPUT);
+  pinMode(power, OUTPUT);
   for (int i = 0; i < 4; i++) {
     states[i] = false;
+    oldstates[i]=false;
     timers[i] = 0;
+    digitalWrite(i+2,LOW);
   }
-  bool mode12 = false; // use 12-hour clock mode
 
-
+  bool mode12 = false;  // use 12-hour clock mode
+  changeState(false, false, false, false);
 }
 
 void loop() {
-  if(!overwrite)checker();
+  if (!overwrite) checker();
   if (oldsec != RTC.getSecond()) {
     oldsec = RTC.getSecond();
 
@@ -62,9 +72,7 @@ void loop() {
           converted.concat(c[1]);
           converted.concat(c[2]);
           valv[i][x] = converted.toInt();
-    
         }
-  
       }
       int y = 0;
       for (int i = 0; i < 4; i++) {
@@ -77,7 +85,7 @@ void loop() {
       }
 
     } else if (c[0] == '0') {
-      overwrite=true;
+      overwrite = true;
       while (!radio.available()) {}
 
       if (radio.available()) {
@@ -85,7 +93,7 @@ void loop() {
         radio.read(&text, sizeof(text));
         String str = "";
         str.concat(text[0]);
-        char ch = str.charAt(0);  
+        char ch = str.charAt(0);
         int nvalv = ch - '0';
         bool state = false;
         if (text[1] == '1') state = true;
@@ -93,11 +101,11 @@ void loop() {
         Serial.print(nvalv);
         Serial.print(": ");
         Serial.println(state);
-        digitalWrite(nvalv + 2, !state);
-        //   Serial.println(str2);
+       // digitalWrite(nvalv + 2, !state);
+        states[nvalv]=!state;
+        sendvalv();
       }
-    }
-    else if(c[0]=='2') overwrite=false;
+    } else if (c[0] == '2') overwrite = false;
   }
 }
 void setradio(bool r) {
@@ -132,15 +140,46 @@ void checker() {
   for (int i = 0; i < 4; i++) {
     totalm = EEPROM.read(y) * 60 + EEPROM.read(y + 1);
     realm = RTC.getHour(h12, hPM) * 60 + RTC.getMinute();
-   //Serial.println("total:\treal\tdur\t ");
-  
-    if (realm >= totalm && realm < totalm + EEPROM.read(y + 2) && EEPROM.read(y+2)>0) states[i]=false;
-    else states[i]=true;
+    if (realm >= totalm && realm < totalm + EEPROM.read(y + 2) && EEPROM.read(y + 2) > 0) states[i] = false;
+    else states[i] = true;
     y += 3;
-
-  } 
-
-  for (int i = 0; i < 4; i++) {
-    digitalWrite(i + 2, states[i]);
   }
+
+  sendvalv();
+}
+
+void changeState(bool s1, bool s2, bool s3, bool s4) {
+  digitalWrite(v1, s1);
+  digitalWrite(v2, s2);
+  digitalWrite(v3, s3);
+  digitalWrite(v4, s4);
+  String p ="";
+  p.concat("v1: ");
+  p.concat(s1);
+  p.concat("\tv2: ");
+  p.concat(s2);
+  p.concat("\tv3: ");
+  p.concat(s3);
+  p.concat("\tv4: ");
+  p.concat(s4);
+  Serial.println(p);
+  delay(1000);
+  digitalWrite(power, !HIGH);
+  delay(1000);
+  digitalWrite(power, !LOW);
+  delay(1000);
+  digitalWrite(v1, !LOW);
+  digitalWrite(v2, !LOW);
+  digitalWrite(v3, !LOW);
+  digitalWrite(v4, !LOW);
+}
+void sendvalv(){
+bool control = false;
+  for (int i = 0; i < 4; i++) {
+    if (oldstates[i] != states[i]) {
+      oldstates[i] = states[i];
+      control = true;
+    }
+  }
+  if(control)changeState(states[0], states[1], states[2], states[3]);
 }
