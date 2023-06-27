@@ -569,6 +569,7 @@ void res() {
   subdash = 0;
   Serial.print("reset");
   lcd.clear();
+  sendData();
 }
 void sendState(int v, bool st) {
   setradio(false);
