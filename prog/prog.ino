@@ -61,7 +61,7 @@ bool bb1 = false;
 bool bb2 = false;
 bool bb3 = false;
 
-char rtime[8]="        ";
+char rtime[8] = "        ";
 void setradio(bool r) {
   if (r) {
     radio.openReadingPipe(0, address);
@@ -99,13 +99,10 @@ void setup() {
 void loop() {
   movepointer();
   setradio(true);
-  if(radio.available()){
+  if (radio.available()) {
     radio.read(&rtime, sizeof(rtime));
     setradio(false);
-
   }
-  
-
 }
 void disp() {
   bb1 = blogic(b1);
@@ -119,7 +116,9 @@ void disp() {
   } else if (pointer == 2) {
     page("Mod. Manuale", "Menu", true);
   } else if (pointer == 3) {
-    page("Reset", "", false);
+    page("Imposta Ora", "Reset", false);
+  } else if (pointer == 4) {
+    page("Imposta Ora", "Reset", true);
   } else if (pointer == 10) {
     page("Valvola 1", "Valvola 2", false);
   } else if (pointer == 11) {
@@ -151,14 +150,14 @@ void movepointer() {
 
   switch (pointer) {
 
-    case 1 ... 3:
+    case 1 ... 4:
       if (bb1) {
         pointer++;
       }
       if (bb3) {
         pointer--;
       }
-      pointer = limit(pointer, 3, 0);
+      pointer = limit(pointer, 4, 0);
       break;
 
     case 10 ... 14:
@@ -212,7 +211,7 @@ void movepointer() {
 void enter() {
   String st = "Valvola ";
   if (bb2) {
-    Serial.println(pointer);
+    //Serial.println(pointer);
     lcd.clear();
     switch (pointer) {
       case 0:
@@ -228,9 +227,13 @@ void enter() {
         break;
 
       case 3:
+        setH();
+        pointer=0;
+        break;
+      case 4:
+
         pointer = 101;
         break;
-
       case 10 ... 13:
         st.concat(pointer - 9);
         program(pointer - 10, tvalv[pointer - 10][0], tvalv[pointer - 10][1], tvalv[pointer - 10][2], st);
@@ -248,14 +251,14 @@ void enter() {
       case 24:
         pointer = 0;
         sendradio("2  ");
-        for(int i = 0; i<nvalv; i++)states[i]=false;
+        for (int i = 0; i < nvalv; i++) states[i] = false;
         break;
     }
   }
 }
-void sendradio(String tosend){
-  char c [tosend.length()] = "";
-  for(int i = 0; i<tosend.length(); i++)c[i]=tosend.charAt(i);
+void sendradio(String tosend) {
+  char c[tosend.length()] = "";
+  for (int i = 0; i < tosend.length(); i++) c[i] = tosend.charAt(i);
   setradio(false);
 
   radio.write(&c, sizeof(c));
@@ -269,6 +272,7 @@ void page(String st1, String st2, bool p) {
   else lcd.setCursor(15, 1);
   lcd.print("<");
 }
+
 void toggle(String st1, String st2, bool p, bool state1, bool state2) {
   lcd.setCursor(11, 0);
   if (state1) lcd.write(1);
@@ -309,7 +313,7 @@ void dash() {
   if (bb1) subdash++;
   else if (bb3) subdash--;
   subdash = rotate(subdash, 4, 0);
-  Serial.println(rtime);
+  //Serial.println(rtime);
   int s = 0;
   for (int i = 0; i < 4; i++) {
     lcd.setCursor(s, 1);
@@ -358,6 +362,51 @@ void dispprogram(int hh, int mm, int dd) {
     str.concat(" min");
   } else str.concat("Off");
   lcd.print(str);
+}
+void setH() {
+  int step = 0;
+  int hh = 0;
+  int mm = 0;
+
+  while (step < 2) {
+    bb1 = blogic(b1);
+    bb2 = blogic(b2);
+    bb3 = blogic(b3);
+    if (bb1 || bb2 || bb3) lcd.clear();
+    if (bb2) step++;
+    print(hh, mm, "Imposta Ora", ":");
+
+    if (step == 0) {  //set h
+      if (bb1) hh++;
+      else if (bb3) hh--;
+      hh = rotate(hh, 23, 0);
+    } 
+    
+    else if (step == 1) {  //set m
+      if (bb1) mm++;
+      else if (bb3) mm--;
+      mm = rotate(mm, 59, 0);
+    }
+  }
+  lcd.clear();
+  sendseth(hh,mm);
+}
+void sendseth(int hh, int mm) {
+  setradio(false);
+  char toSend[3] = "3  ";
+  radio.write(&toSend, sizeof(toSend));
+  ///////////////////////////////////
+  String str = "";
+  if(hh<9)str.concat("0");
+  str.concat(hh);
+  if(mm<9)str.concat("0");
+  str.concat(mm);
+  
+  Serial.println(str);
+  char htosend [4];
+  for(int i = 0; i<4; i++)htosend[i]=str.charAt(i);
+  radio.write(&htosend, sizeof(htosend));
+
 }
 void program(int n, int hh, int mm, int dd, String name) {
   int step = 0;

@@ -8,8 +8,9 @@ DS3231 RTC;
 #define v2 3
 #define v3 4
 #define v4 5
-#define power 9
-
+#define power1 9   //d2, d4
+#define power2 10  //d3, d5
+const int del = 500; 
 RF24 radio(7, 8);  // CE, CSN
 const byte address[6] = "122222";
 int valv[4][3];
@@ -32,12 +33,13 @@ void setup() {
   pinMode(v2, OUTPUT);
   pinMode(v3, OUTPUT);
   pinMode(v4, OUTPUT);
-  pinMode(power, OUTPUT);
+  pinMode(power1, OUTPUT);
+  pinMode(power2, OUTPUT);
   for (int i = 0; i < 4; i++) {
     states[i] = false;
-    oldstates[i]=false;
+    oldstates[i] = false;
     timers[i] = 0;
-    digitalWrite(i+2,LOW);
+    digitalWrite(i + 2, LOW);
   }
 
   bool mode12 = false;  // use 12-hour clock mode
@@ -62,7 +64,7 @@ void loop() {
     char c[3] = "   ";
     radio.read(&c, sizeof(c));
     Serial.println(c);
-    if (c[0] == '1') {
+    if (c[0] == '1') {//config
       for (int i = 0; i < 4; i++) {
         for (int x = 0; x < 3; x++) {
           while (!radio.available()) {}
@@ -84,7 +86,7 @@ void loop() {
         }
       }
 
-    } else if (c[0] == '0') {
+    } else if (c[0] == '0') { //manual
       overwrite = true;
       while (!radio.available()) {}
 
@@ -101,11 +103,28 @@ void loop() {
         Serial.print(nvalv);
         Serial.print(": ");
         Serial.println(state);
-       // digitalWrite(nvalv + 2, !state);
-        states[nvalv]=!state;
+        // digitalWrite(nvalv + 2, !state);
+        states[nvalv] = !state;
         sendvalv();
       }
     } else if (c[0] == '2') overwrite = false;
+    else if(c[0] == '3'){
+      char hhmm []="    ";
+      radio.read(&hhmm, sizeof(hhmm));
+      String strhh = "";
+       String strmm = "";
+      strhh.concat(hhmm[0]);
+       strhh.concat(hhmm[1]);
+        strmm.concat(hhmm[2]);
+       strmm.concat(hhmm[3]);
+      int hh = strhh.toInt();
+      int mm = strmm.toInt();
+      RTC.setMinute(mm);
+      RTC.setHour(hh);
+      RTC.setSecond(0);
+       Serial.println(strhh);
+       Serial.println(strmm);
+    }
   }
 }
 void setradio(bool r) {
@@ -150,36 +169,32 @@ void checker() {
 
 void changeState(bool s1, bool s2, bool s3, bool s4) {
   digitalWrite(v1, s1);
-  digitalWrite(v2, s2);
   digitalWrite(v3, s3);
-  digitalWrite(v4, s4);
-  String p ="";
-  p.concat("v1: ");
-  p.concat(s1);
-  p.concat("\tv2: ");
-  p.concat(s2);
-  p.concat("\tv3: ");
-  p.concat(s3);
-  p.concat("\tv4: ");
-  p.concat(s4);
-  Serial.println(p);
-  delay(1000);
-  digitalWrite(power, !HIGH);
-  delay(1000);
-  digitalWrite(power, !LOW);
-  delay(1000);
+  delay(del);
+  digitalWrite(power1, !HIGH);
+  delay(del);
+  digitalWrite(power1, !LOW);
+  delay(del);
   digitalWrite(v1, !LOW);
-  digitalWrite(v2, !LOW);
   digitalWrite(v3, !LOW);
+  delay(del);
+  digitalWrite(v2, s2);
+  digitalWrite(v4, s4);
+  delay(del);
+  digitalWrite(power2, !HIGH);
+  delay(del);
+  digitalWrite(power2, !LOW);
+  delay(del);
+  digitalWrite(v2, !LOW);
   digitalWrite(v4, !LOW);
 }
-void sendvalv(){
-bool control = false;
+void sendvalv() {
+  bool control = false;
   for (int i = 0; i < 4; i++) {
     if (oldstates[i] != states[i]) {
       oldstates[i] = states[i];
       control = true;
     }
   }
-  if(control)changeState(states[0], states[1], states[2], states[3]);
+  if (control) changeState(states[0], states[1], states[2], states[3]);
 }
