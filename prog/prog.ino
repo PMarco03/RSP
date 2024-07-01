@@ -11,7 +11,7 @@ const byte address[6] = "122222";
 int valv[nvalv][npar];
 int tvalv[nvalv][npar];
 bool states[nvalv];
-
+bool globalDisable = false;
 int b1 = 4;
 int b2 = 3;
 int b3 = 2;
@@ -78,13 +78,24 @@ void setup() {
   pinMode(b1, INPUT_PULLUP);
   pinMode(b2, INPUT_PULLUP);
   pinMode(b3, INPUT_PULLUP);
-  lcd.begin();      //initialize the lcd
+  lcd.begin(16,2);      //initialize the lcd
   lcd.backlight();  //open the backlight
   lcd.createChar(0, off);
   lcd.createChar(1, on);
   lcd.createChar(2, up);
   Serial.begin(9600);
 
+readEEPROM();
+}
+void loop() {
+  movepointer();
+  setradio(true);
+  if (radio.available()) {
+    radio.read(&rtime, sizeof(rtime));
+    setradio(false);
+  }
+}
+void readEEPROM(){
   int y = 0;
   for (int i = 0; i < nvalv; i++) {
     states[i] = false;
@@ -94,16 +105,10 @@ void setup() {
       y++;
     }
   }
+  globalDisable = EEPROM.read(100);
 }
 
-void loop() {
-  movepointer();
-  setradio(true);
-  if (radio.available()) {
-    radio.read(&rtime, sizeof(rtime));
-    setradio(false);
-  }
-}
+
 void disp() {
   bb1 = blogic(b1);
   bb2 = blogic(b2);
@@ -116,10 +121,15 @@ void disp() {
   } else if (pointer == 2) {
     page("Mod. Manuale", "Menu", true);
   } else if (pointer == 3) {
-    page("Imposta Ora", "Reset", false);
+   if(!globalDisable) page("Imposta Ora", "Disattiva prog", false);
+   else page("Imposta Ora", "Attiva prog", false);
   } else if (pointer == 4) {
-    page("Imposta Ora", "Reset", true);
-  } else if (pointer == 10) {
+     if(!globalDisable) page("Imposta Ora", "Disattiva prog", true);
+   else page("Imposta Ora", "Attiva prog", true);
+  } else if (pointer == 5) {
+    page("Reset", "", false);
+  } 
+  else if (pointer == 10) {
     page("Valvola 1", "Valvola 2", false);
   } else if (pointer == 11) {
     page("Valvola 1", "Valvola 2", true);
@@ -150,14 +160,14 @@ void movepointer() {
 
   switch (pointer) {
 
-    case 1 ... 4:
+    case 1 ... 5:
       if (bb1) {
         pointer++;
       }
       if (bb3) {
         pointer--;
       }
-      pointer = limit(pointer, 4, 0);
+      pointer = limit(pointer, 5, 0);
       break;
 
     case 10 ... 14:
@@ -230,7 +240,10 @@ void enter() {
         setH();
         pointer=0;
         break;
-      case 4:
+        case 4:
+       globalDisableProg();
+        break;
+      case 5:
 
         pointer = 101;
         break;
@@ -299,6 +312,7 @@ void save(bool sc) {
         y++;
       }
     }
+
     sendData();
 
   } else {
@@ -406,6 +420,22 @@ void sendseth(int hh, int mm) {
   char htosend [4];
   for(int i = 0; i<4; i++)htosend[i]=str.charAt(i);
   radio.write(&htosend, sizeof(htosend));
+
+}
+void globalDisableProg(){
+   globalDisable = !globalDisable;
+     EEPROM.write(100, globalDisable);
+  if(globalDisable){
+    valv[0][2] = 0;
+  valv[1][2] = 0;
+  valv[2][2] = 0;
+  valv[3][2] = 0;
+  }
+  else{
+  readEEPROM();
+  }
+
+  sendData();
 
 }
 void program(int n, int hh, int mm, int dd, String name) {
