@@ -8,9 +8,9 @@ DS3231 RTC;
 #define v2 3
 #define v3 4
 #define v4 5
-#define power1 9   //d2, d4
-#define power2 10  //d3, d5
-const int del = 500; 
+#define power1 9   //d2, d3
+#define power2 10  //d4, d5
+const int del = 100;
 RF24 radio(7, 8);  // CE, CSN
 const byte address[6] = "122222";
 int valv[4][3];
@@ -22,6 +22,25 @@ bool oldstates[4];
 long unsigned int timers[4];
 bool overwrite = false;
 void setup() {
+
+  pinMode(v1, OUTPUT);
+  pinMode(v2, OUTPUT);
+  pinMode(v3, OUTPUT);
+  pinMode(v4, OUTPUT);
+  pinMode(power1, OUTPUT);
+  pinMode(power2, OUTPUT);
+  
+
+  digitalWrite(v1, true);
+  digitalWrite(v2, true);
+  digitalWrite(v3, true);
+  digitalWrite(v4, true);
+  digitalWrite(power1, false);
+  digitalWrite(power2, false);
+
+changeState(true, true, true, true);
+changeState(false, false, false, false);
+
   Wire.begin();
   Serial.begin(9600);
   radio.begin();
@@ -29,21 +48,17 @@ void setup() {
   radio.openWritingPipe(address);
   radio.stopListening();
   setradio(true);
-  pinMode(v1, OUTPUT);
-  pinMode(v2, OUTPUT);
-  pinMode(v3, OUTPUT);
-  pinMode(v4, OUTPUT);
-  pinMode(power1, OUTPUT);
-  pinMode(power2, OUTPUT);
+
+
+  
   for (int i = 0; i < 4; i++) {
     states[i] = false;
     oldstates[i] = false;
     timers[i] = 0;
-    digitalWrite(i + 2, LOW);
   }
 
   bool mode12 = false;  // use 12-hour clock mode
-  changeState(false, false, false, false);
+
 }
 
 void loop() {
@@ -64,7 +79,7 @@ void loop() {
     char c[3] = "   ";
     radio.read(&c, sizeof(c));
     Serial.println(c);
-    if (c[0] == '1') {//config
+    if (c[0] == '1') {  //config
       for (int i = 0; i < 4; i++) {
         for (int x = 0; x < 3; x++) {
           while (!radio.available()) {}
@@ -86,7 +101,7 @@ void loop() {
         }
       }
 
-    } else if (c[0] == '0') { //manual
+    } else if (c[0] == '0') {  //manual
       overwrite = true;
       while (!radio.available()) {}
 
@@ -108,25 +123,26 @@ void loop() {
         sendvalv();
       }
     } else if (c[0] == '2') overwrite = false;
-    else if(c[0] == '3'){
+    else if (c[0] == '3') {
       while (!radio.available()) {}
-      char hhmm []="     ";
+      char hhmm[] = "     ";
       radio.read(&hhmm, sizeof(hhmm));
       String strhh = "";
-       String strmm = "";
+      String strmm = "";
       strhh.concat(hhmm[0]);
-       strhh.concat(hhmm[1]);
-        strmm.concat(hhmm[2]);
-       strmm.concat(hhmm[3]);
+      strhh.concat(hhmm[1]);
+      strmm.concat(hhmm[2]);
+      strmm.concat(hhmm[3]);
       int hh = strhh.toInt();
       int mm = strmm.toInt();
       RTC.setMinute(mm);
       RTC.setHour(hh);
       RTC.setSecond(0);
-       Serial.println(hh);
-       Serial.println(mm);
+      Serial.println(hh);
+      Serial.println(mm);
     }
   }
+
 }
 void setradio(bool r) {
   if (r) {
@@ -169,25 +185,30 @@ void checker() {
 }
 
 void changeState(bool s1, bool s2, bool s3, bool s4) {
-  digitalWrite(v1, s1);
-  digitalWrite(v3, s3);
+  digitalWrite(v1, !s1);
+  digitalWrite(v2, !s2);
+  delay(del/4);
+
+  digitalWrite(power1, true);
   delay(del);
-  digitalWrite(power1, !HIGH);
+  digitalWrite(power1, false);
+  delay(del/4);
+
+  digitalWrite(v1, !false);
+  digitalWrite(v2, !false);
+  delay(del/4);
+
+  digitalWrite(v3, !s3);
+  digitalWrite(v4, !s4);
+  delay(del/4);
+
+  digitalWrite(power2, true);
   delay(del);
-  digitalWrite(power1, !LOW);
-  delay(del);
-  digitalWrite(v1, !LOW);
-  digitalWrite(v3, !LOW);
-  delay(del);
-  digitalWrite(v2, s2);
-  digitalWrite(v4, s4);
-  delay(del);
-  digitalWrite(power2, !HIGH);
-  delay(del);
-  digitalWrite(power2, !LOW);
-  delay(del);
-  digitalWrite(v2, !LOW);
-  digitalWrite(v4, !LOW);
+  digitalWrite(power2, false);
+  delay(del/4);
+
+  digitalWrite(v3, !false);
+  digitalWrite(v4, !false);
 }
 void sendvalv() {
   bool control = false;
